@@ -45,10 +45,10 @@ object Repo {
 
     /** Paliers de repère adaptés à l'ordre de grandeur de la devise. */
     fun steps(rate: Double): List<Long> = when {
-        rate >= 1000 -> listOf(1000, 5000, 10000)
-        rate >= 100 -> listOf(100, 500, 1000)
-        rate >= 10 -> listOf(10, 50, 100)
-        else -> listOf(1, 5, 20)
+        rate >= 1000 -> listOf(1000L, 5000L, 10000L)
+        rate >= 100 -> listOf(100L, 500L, 1000L)
+        rate >= 10 -> listOf(10L, 50L, 100L)
+        else -> listOf(1L, 5L, 20L)
     }
 
     fun stateFlow(ctx: Context) = ctx.dataStore.data.map { p -> toState(p) }
