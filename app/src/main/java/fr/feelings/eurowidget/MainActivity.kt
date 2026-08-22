@@ -59,6 +59,8 @@ fun Converter() {
     LaunchedEffect(Unit) { online = Repo.fetch(ctx) }
 
     val s = state ?: return
+    // Reprend le montant estimé depuis la roue du widget.
+    LaunchedEffect(Unit) { if (amount.isEmpty() && s.amt > 0) amount = s.amt.toLong().toString() }
     val value = amount.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
 
     Column(

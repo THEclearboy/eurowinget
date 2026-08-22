@@ -12,6 +12,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.text.NumberFormat
 import java.util.Locale
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.roundToLong
 
 // Taux intégrés (1 € = x), utilisés hors-ligne / au premier lancement.
 val CURRENCIES: List<Pair<String, Double>> = listOf(
@@ -27,9 +33,14 @@ object Keys {
     val DATE = stringPreferencesKey("date")
     val SRC = stringPreferencesKey("src")
     fun rate(c: String) = doublePreferencesKey("rate_$c")
+    // Roue d'estimation du widget
+    val AMT = doublePreferencesKey("amt")
+    val W_TS = longPreferencesKey("w_ts")
+    val W_LVL = intPreferencesKey("w_lvl")
+    val W_DIR = intPreferencesKey("w_dir")
 }
 
-data class State(val cur: String, val rate: Double, val date: String, val src: String)
+data class State(val cur: String, val rate: Double, val date: String, val src: String, val amt: Double = 0.0)
 
 object Repo {
     private val fr = Locale.FRANCE
@@ -58,7 +69,28 @@ object Repo {
     private fun toState(p: Preferences): State {
         val cur = p[Keys.CUR] ?: CURRENCIES.first().first
         val def = CURRENCIES.first { it.first == cur }.second
-        return State(cur, p[Keys.rate(cur)] ?: def, p[Keys.DATE] ?: "—", p[Keys.SRC] ?: "intégrée")
+        return State(cur, p[Keys.rate(cur)] ?: def, p[Keys.DATE] ?: "—", p[Keys.SRC] ?: "intégrée", p[Keys.AMT] ?: 0.0)
+    }
+
+    /** Multiplicateurs d'accélération : taps rapides successifs dans le même sens → paliers de plus en plus grands. */
+    private val MULTS = listOf(1, 1, 2, 2, 5, 5, 10, 10, 20, 50)
+    private const val WHEEL_IDLE_MS = 1200L
+
+    /** Cran de la roue : dir = +1 / -1, 0 = remise à zéro. Le pas de base suit l'ordre de grandeur du montant. */
+    suspend fun wheel(ctx: Context, dir: Int) {
+        val p = ctx.dataStore.data.first()
+        val s = toState(p)
+        val now = System.currentTimeMillis()
+        val lvl = if (dir != 0 && p[Keys.W_DIR] == dir && now - (p[Keys.W_TS] ?: 0L) < WHEEL_IDLE_MS)
+            min((p[Keys.W_LVL] ?: 0) + 1, MULTS.lastIndex) else 0
+        val unit = steps(s.rate).first().toDouble()
+        val ref = if (dir > 0) s.amt else s.amt - 1
+        val mag = if (ref >= 1) 10.0.pow(floor(log10(ref))) else 0.0
+        val base = max(unit, mag / 10)
+        val step = base * MULTS[lvl]
+        val next = if (dir == 0) 0.0 else max(0.0, ((s.amt + dir * step) / base).roundToLong() * base)
+        ctx.dataStore.edit { it[Keys.AMT] = next; it[Keys.W_TS] = now; it[Keys.W_LVL] = lvl; it[Keys.W_DIR] = dir }
+        EuroWidget.refreshAll(ctx)
     }
 
     suspend fun setCurrency(ctx: Context, c: String) {
