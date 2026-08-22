@@ -15,6 +15,8 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.layout.*
@@ -30,10 +32,9 @@ private val WHITE = ColorProvider(Color.White)
 private val DIM = ColorProvider(Color(0xFF6E6E6E))
 private val RED = ColorProvider(Color(0xFFD71921))
 private val PANEL = ColorProvider(Color(0xFF0A0A0A))
-private val LINE = ColorProvider(Color(0xFF2A2A2A))
 private val GHOST = ColorProvider(Color(0xFF2D2D2D))
 
-val DIR_KEY = ActionParameters.Key<Int>("dir")
+val AMT_KEY = ActionParameters.Key<Double>("amt")
 
 class EuroWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -50,14 +51,12 @@ class EuroWidget : GlanceAppWidget() {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Wheel(mono)
-            Spacer(GlanceModifier.width(12.dp))
+            // ----- Gauche : taux, estimation, repères (tap = ouvre l'app)
             Column(
                 modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     .clickable(actionStartActivity<MainActivity>()),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Ligne 1 : LED + taux + date
                 Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Box(GlanceModifier.size(6.dp).background(if (s.src == "bce") RED else DIM).cornerRadius(3.dp)) {}
                     Spacer(GlanceModifier.width(8.dp))
@@ -66,63 +65,43 @@ class EuroWidget : GlanceAppWidget() {
                     Text(s.date, style = TextStyle(color = DIM, fontSize = 10.sp, fontFamily = mono))
                 }
                 Spacer(GlanceModifier.height(6.dp))
-                // Ligne 2 : estimation (montant en devise -> €). Tap = remise à zéro.
-                Row(
-                    modifier = GlanceModifier.fillMaxWidth().clickable(actionRunCallback<WheelAction>(actionParametersOf(DIR_KEY to 0))),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (s.amt > 0) {
-                        Text(Repo.fmtEur(s.amt / s.rate) + " €", style = TextStyle(color = WHITE, fontSize = 24.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
-                        Spacer(GlanceModifier.defaultWeight())
-                        Text("${Repo.fmtInt(s.amt.toLong())} ${s.cur}", style = TextStyle(color = DIM, fontSize = 12.sp, fontFamily = mono))
-                    } else {
-                        Text("0,00 €", style = TextStyle(color = GHOST, fontSize = 24.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
-                        Spacer(GlanceModifier.defaultWeight())
-                        Text("+ / − POUR ESTIMER", style = TextStyle(color = DIM, fontSize = 9.sp, fontFamily = mono))
-                    }
+                if (s.amt > 0) {
+                    Text(Repo.fmtEur(s.amt / s.rate) + " €", style = TextStyle(color = WHITE, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
+                    Text("${Repo.fmtAmt(s.amt)} ${s.cur}", style = TextStyle(color = DIM, fontSize = 11.sp, fontFamily = mono))
+                } else {
+                    Text("0,00 €", style = TextStyle(color = GHOST, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
+                    Text("SCROLL → CHOISIR UN PRIX", style = TextStyle(color = DIM, fontSize = 9.sp, fontFamily = mono))
                 }
                 Spacer(GlanceModifier.height(6.dp))
-                // Ligne 3 : repères
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
                     Repo.steps(s.rate).forEach { step ->
                         Column(modifier = GlanceModifier.defaultWeight()) {
-                            Text(Repo.fmtEur(step / s.rate) + " €", style = TextStyle(color = WHITE, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
+                            Text(Repo.fmtEur(step / s.rate) + " €", style = TextStyle(color = WHITE, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
                             Text("${Repo.fmtInt(step)} ${s.cur}", style = TextStyle(color = DIM, fontSize = 9.sp, fontFamily = mono))
                         }
                     }
                 }
             }
-        }
-    }
-
-    /** Roue crantée : + en haut, crans au milieu (cran central = LED), − en bas. */
-    @Composable
-    private fun Wheel(mono: FontFamily) {
-        Column(
-            modifier = GlanceModifier.width(44.dp).fillMaxHeight().background(PANEL).cornerRadius(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
-                    .clickable(actionRunCallback<WheelAction>(actionParametersOf(DIR_KEY to 1))),
-                contentAlignment = Alignment.Center
-            ) { Text("+", style = TextStyle(color = WHITE, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = mono)) }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(GlanceModifier.width(10.dp).height(1.dp).background(LINE)) {}
-                Spacer(GlanceModifier.height(4.dp))
-                Box(GlanceModifier.width(16.dp).height(1.dp).background(LINE)) {}
-                Spacer(GlanceModifier.height(4.dp))
-                Box(GlanceModifier.width(22.dp).height(2.dp).background(RED)) {}
-                Spacer(GlanceModifier.height(4.dp))
-                Box(GlanceModifier.width(16.dp).height(1.dp).background(LINE)) {}
-                Spacer(GlanceModifier.height(4.dp))
-                Box(GlanceModifier.width(10.dp).height(1.dp).background(LINE)) {}
+            Spacer(GlanceModifier.width(10.dp))
+            // ----- Droite : échelle de prix scrollable (tap = sélectionne)
+            Box(modifier = GlanceModifier.width(124.dp).fillMaxHeight().background(PANEL).cornerRadius(16.dp)) {
+                LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                    items(Repo.ladder(s.rate), itemId = { (it * 100).toLong() }) { v ->
+                        val on = v == s.amt
+                        Row(
+                            modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)
+                                .clickable(actionRunCallback<SelectAmount>(actionParametersOf(AMT_KEY to v))),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(GlanceModifier.size(5.dp).background(if (on) RED else PANEL).cornerRadius(3.dp)) {}
+                            Spacer(GlanceModifier.width(6.dp))
+                            Text(Repo.fmtAmt(v), style = TextStyle(color = if (on) WHITE else DIM, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal, fontFamily = mono))
+                            Spacer(GlanceModifier.defaultWeight())
+                            Text(Repo.fmtEur(v / s.rate) + "€", style = TextStyle(color = if (on) WHITE else DIM, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal, fontFamily = mono))
+                        }
+                    }
+                }
             }
-            Box(
-                modifier = GlanceModifier.fillMaxWidth().defaultWeight()
-                    .clickable(actionRunCallback<WheelAction>(actionParametersOf(DIR_KEY to -1))),
-                contentAlignment = Alignment.Center
-            ) { Text("−", style = TextStyle(color = WHITE, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = mono)) }
         }
     }
 
@@ -131,10 +110,14 @@ class EuroWidget : GlanceAppWidget() {
     }
 }
 
-/** Clic sur la roue (+ / − / reset). */
-class WheelAction : ActionCallback {
+/** Tap sur un palier de l'échelle. */
+class SelectAmount : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        Repo.wheel(context, parameters[DIR_KEY] ?: 0)
+        val v = parameters[AMT_KEY] ?: 0.0
+        val cur = Repo.state(context).amt
+        Repo.setAmount(context, if (v == cur) 0.0 else v) // re-tap = désélection
+        EuroWidget().update(context, glanceId)
+        EuroWidget.refreshAll(context)
     }
 }
 
