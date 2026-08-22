@@ -64,10 +64,10 @@ object Repo {
         return State(cur, p[Keys.rate(cur)] ?: def, p[Keys.DATE] ?: "—", p[Keys.SRC] ?: "intégrée", p[Keys.AMT] ?: 0.0)
     }
 
-    /** Échelle de paliers du widget : 1 / 1,5 / 2 / 3 / 4 / 5 / 6 / 8 par décade, à partir du pas de base de la devise. */
+    /** Roue de prix du widget : 13 paliers par décade (1 → 9), à partir du pas de base de la devise, sur 3 décades. */
     fun ladder(rate: Double): List<Double> {
         val u = steps(rate).first().toDouble()
-        val m = listOf(1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0)
+        val m = listOf(1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
         return (0..2).flatMap { k -> m.map { it * u * 10.0.pow(k) } } + listOf(u * 1000)
     }
 
