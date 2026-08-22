@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">EUR</string>
+    <string name="widget_desc">Repères de prix en euros</string>
+</resources>
