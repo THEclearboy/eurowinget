@@ -67,14 +67,15 @@ object Repo {
     /**
      * Grille de prix du widget : paliers linéaires calés sur les prix réels, exprimés pour une devise
      * de référence "100 = pas de base" puis mis à l'échelle de la devise (LKR ×1, IDR ×10, THB ×0,1, USD ×0,01…).
-     * 50→1 000 par 50, →3 000 par 100, →5 000 par 250, →10 000 par 500, →30 000 par 1 000, →100 000 par 5 000.
+     * 50→500 par 50, →1 000 par 100, →3 000 par 250, →5 000 par 500, →10 000 par 1 000, puis 12,5k 15k 20k 25k 30k 40k 50k 75k 100k.
      */
     fun ladder(rate: Double): List<Double> {
         val f = steps(rate).first() / 100.0
         fun zone(from: Double, to: Double, step: Double) =
             generateSequence(from) { it + step }.takeWhile { it <= to + 1e-9 }.toList()
-        return (zone(50.0, 1000.0, 50.0) + zone(1100.0, 3000.0, 100.0) + zone(3250.0, 5000.0, 250.0) +
-                zone(5500.0, 10000.0, 500.0) + zone(11000.0, 30000.0, 1000.0) + zone(35000.0, 100000.0, 5000.0))
+        return (zone(50.0, 500.0, 50.0) + zone(600.0, 1000.0, 100.0) + zone(1250.0, 3000.0, 250.0) +
+                zone(3500.0, 5000.0, 500.0) + zone(6000.0, 10000.0, 1000.0) +
+                listOf(12500.0, 15000.0, 20000.0, 25000.0, 30000.0, 40000.0, 50000.0, 75000.0, 100000.0))
             .map { it * f }
     }
 
