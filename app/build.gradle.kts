@@ -1,12 +1,44 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Signature : fournie par la CI via variables d'environnement (secrets GitHub),
+// ou localement via un fichier keystore.properties (non commité).
+val ksProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun sig(key: String): String? = System.getenv(key) ?: ksProps.getProperty(key)
+val ksFile = sig("KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+
 android {
     namespace = "fr.feelings.eurowidget"
     compileSdk = 35
-    defaultConfig { applicationId = "fr.feelings.eurowidget"; minSdk = 31; targetSdk = 35; versionCode = 1; versionName = "1.0" }
+    defaultConfig {
+        applicationId = "fr.feelings.eurowidget"
+        minSdk = 31; targetSdk = 35
+        versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
+        versionName = System.getenv("VERSION_NAME") ?: "dev"
+    }
+    signingConfigs {
+        if (ksFile != null) create("release") {
+            storeFile = ksFile
+            storeType = "PKCS12"
+            storePassword = sig("KEYSTORE_PASSWORD")
+            keyAlias = sig("KEY_ALIAS")
+            keyPassword = sig("KEY_PASSWORD")
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
+        }
+    }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

@@ -24,8 +24,13 @@ Le widget Glance reste en monospace système (limite Android des RemoteViews).
 - Hors-ligne : taux intégrés dans Rates.kt (CURRENCIES) ou saisie manuelle depuis l'app.
 - Ajouter une devise : une ligne dans CURRENCIES, c'est tout.
 
-## APK sans Android Studio (GitHub Actions)
-1. Créer un dépôt GitHub (privé ok), y pousser ce dossier.
-2. Onglet Actions → "Build APK" tourne seul (~4 min).
-3. Ouvrir le run → Artifacts → télécharger `EuroWidget-debug.apk` (zip) → installer.
-Sur Android : autoriser "Installer des applications inconnues" pour le navigateur si demandé.
+## APK & mises à jour (GitHub Actions + Obtainium)
+- Chaque push sur `main` construit un APK **release signé** (artifact `EuroWidget-apk` dans l'onglet Actions).
+- Chaque tag `vX.Y.Z` publie en plus une **Release GitHub** avec l'APK attaché :
+  `git tag v0.3.0 && git push origin v0.3.0`
+- Sur le téléphone : **Obtainium** → Ajouter une app → URL `https://github.com/THEclearboy/eurowinget`.
+  Il détecte les nouvelles releases et propose la mise à jour (installation par-dessus, données conservées).
+- Le `versionCode` = numéro de run CI (toujours croissant) ; `versionName` = le tag.
+- Signature : keystore PKCS12 stocké dans les secrets GitHub (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
+  Ne jamais le changer, sinon Android refusera la mise à jour (désinstallation obligatoire).
+  En local : créer `keystore.properties` (ignoré par git) avec `KEYSTORE_FILE=...`, `KEYSTORE_PASSWORD=...`, `KEY_ALIAS=...`, `KEY_PASSWORD=...`.
