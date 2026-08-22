@@ -75,6 +75,16 @@ object Repo {
         if (v == floor(v)) fmtInt(v.toLong())
         else NumberFormat.getNumberInstance(fr).apply { maximumFractionDigits = 1 }.format(v)
 
+    suspend fun setCurrency(ctx: Context, c: String) {
+        ctx.dataStore.edit { it[Keys.CUR] = c; it[Keys.AMT] = 0.0 }
+        EuroWidget.refreshAll(ctx)
+    }
+
+    suspend fun setManualRate(ctx: Context, c: String, r: Double) {
+        ctx.dataStore.edit { it[Keys.rate(c)] = r; it[Keys.SRC] = "manuel" }
+        EuroWidget.refreshAll(ctx)
+    }
+
     /** Sélection d'un palier dans le widget (0 = aucun). */
     suspend fun setAmount(ctx: Context, v: Double) {
         ctx.dataStore.edit { it[Keys.AMT] = v }
