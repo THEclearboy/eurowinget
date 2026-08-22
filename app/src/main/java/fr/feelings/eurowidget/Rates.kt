@@ -64,12 +64,22 @@ object Repo {
         return State(cur, p[Keys.rate(cur)] ?: def, p[Keys.DATE] ?: "—", p[Keys.SRC] ?: "intégrée", p[Keys.AMT] ?: 0.0)
     }
 
-    /** Roue de prix du widget : 13 paliers par décade (1 → 9), à partir du pas de base de la devise, sur 3 décades. */
+    /**
+     * Grille de prix du widget : paliers linéaires calés sur les prix réels, exprimés pour une devise
+     * de référence "100 = pas de base" puis mis à l'échelle de la devise (LKR ×1, IDR ×10, THB ×0,1, USD ×0,01…).
+     * 50→1 000 par 50, →3 000 par 100, →5 000 par 250, →10 000 par 500, →30 000 par 1 000, →100 000 par 5 000.
+     */
     fun ladder(rate: Double): List<Double> {
-        val u = steps(rate).first().toDouble()
-        val m = listOf(1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
-        return (0..2).flatMap { k -> m.map { it * u * 10.0.pow(k) } } + listOf(u * 1000)
+        val f = steps(rate).first() / 100.0
+        fun zone(from: Double, to: Double, step: Double) =
+            generateSequence(from) { it + step }.takeWhile { it <= to + 1e-9 }.toList()
+        return (zone(50.0, 1000.0, 50.0) + zone(1100.0, 3000.0, 100.0) + zone(3250.0, 5000.0, 250.0) +
+                zone(5500.0, 10000.0, 500.0) + zone(11000.0, 30000.0, 1000.0) + zone(35000.0, 100000.0, 5000.0))
+            .map { it * f }
     }
+
+    /** Repère de tête : 10 × pas de base (1 000 LKR, 10 000 IDR, 100 THB, 10 USD…). */
+    fun mentalRef(rate: Double): Double = steps(rate).first() * 10.0
 
     fun fmtAmt(v: Double): String =
         if (v == floor(v)) fmtInt(v.toLong())

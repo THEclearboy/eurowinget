@@ -6,12 +6,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.GridCells
+import androidx.glance.appwidget.lazy.LazyVerticalGrid
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
@@ -28,7 +31,9 @@ private val WHITE = ColorProvider(Color.White)
 private val DIM = ColorProvider(Color(0xFF6E6E6E))
 private val RED = ColorProvider(Color(0xFFD71921))
 private val PANEL = ColorProvider(Color(0xFF0A0A0A))
-private val LINE = ColorProvider(Color(0xFF1E1E1E))
+
+/** Clé d'extra (= MainActivity.EXTRA_AMOUNT) : montant local à pré-remplir dans l'app. */
+private val AMOUNT_PARAM = ActionParameters.Key<Double>(MainActivity.EXTRA_AMOUNT)
 
 class EuroWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -39,39 +44,43 @@ class EuroWidget : GlanceAppWidget() {
     @Composable
     private fun Content(s: State) {
         val mono = FontFamily.Monospace
-        Row(
+        Column(
             modifier = GlanceModifier.fillMaxSize()
                 .background(ImageProvider(R.drawable.widget_bg))
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            // ----- Gauche : devise, taux, date (tap = ouvre l'app)
-            Column(
-                modifier = GlanceModifier.width(96.dp).fillMaxHeight()
-                    .clickable(actionStartActivity<MainActivity>()),
+            // ----- En-tête (tap = ouvre l'app) : LED · devise · taux · date
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity<MainActivity>()),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(GlanceModifier.size(6.dp).background(if (s.src == "bce") RED else DIM).cornerRadius(3.dp)) {}
-                    Spacer(GlanceModifier.width(8.dp))
-                    Text(s.cur, style = TextStyle(color = WHITE, fontSize = 18.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
-                }
-                Spacer(GlanceModifier.height(6.dp))
-                Text("1 € =", style = TextStyle(color = DIM, fontSize = 10.sp, fontFamily = mono))
-                Text(Repo.fmtRate(s.rate), style = TextStyle(color = WHITE, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
-                Spacer(GlanceModifier.height(6.dp))
+                Box(GlanceModifier.size(6.dp).background(if (s.src == "bce") RED else DIM).cornerRadius(3.dp)) {}
+                Spacer(GlanceModifier.width(8.dp))
+                Text(s.cur, style = TextStyle(color = WHITE, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
+                Spacer(GlanceModifier.width(10.dp))
+                Text("1 € = ${Repo.fmtRate(s.rate)}", style = TextStyle(color = DIM, fontSize = 10.sp, fontFamily = mono))
+                Spacer(GlanceModifier.defaultWeight())
                 Text(s.date, style = TextStyle(color = DIM, fontSize = 10.sp, fontFamily = mono))
             }
-            Spacer(GlanceModifier.width(10.dp))
-            // ----- Droite : roue de prix — glisser pour faire défiler, conversion en direct
-            Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight().background(PANEL).cornerRadius(16.dp)) {
-                LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                    items(Repo.ladder(s.rate), itemId = { (it * 100).toLong() }) { v ->
-                        Column(modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp)) {
-                            Text("${Repo.fmtAmt(v)} ${s.cur}", style = TextStyle(color = DIM, fontSize = 11.sp, fontFamily = mono))
-                            Text(Repo.fmtEur(v / s.rate) + " €", style = TextStyle(color = WHITE, fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
-                            Spacer(GlanceModifier.height(6.dp))
-                            Box(GlanceModifier.fillMaxWidth().height(1.dp).background(LINE)) {}
+            // Règle de tête
+            val ref = Repo.mentalRef(s.rate)
+            Text(
+                "${Repo.fmtAmt(ref)} ${s.cur} ≈ ${Repo.fmtEur(ref / s.rate)} €",
+                style = TextStyle(color = DIM, fontSize = 10.sp, fontFamily = mono),
+                modifier = GlanceModifier.padding(start = 14.dp, top = 2.dp)
+            )
+            Spacer(GlanceModifier.height(8.dp))
+            // ----- Grille de prix : montant local en gros, € dessous. Tap = app pré-remplie.
+            LazyVerticalGrid(gridCells = GridCells.Fixed(3), modifier = GlanceModifier.fillMaxSize()) {
+                items(Repo.ladder(s.rate), itemId = { (it * 100).toLong() }) { v ->
+                    Box(GlanceModifier.padding(3.dp)) {
+                        Column(
+                            modifier = GlanceModifier.fillMaxWidth().background(PANEL).cornerRadius(12.dp)
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                                .clickable(actionStartActivity<MainActivity>(actionParametersOf(AMOUNT_PARAM to v)))
+                        ) {
+                            Text(Repo.fmtAmt(v), style = TextStyle(color = WHITE, fontSize = 17.sp, fontWeight = FontWeight.Bold, fontFamily = mono))
+                            Text(Repo.fmtEur(v / s.rate) + " €", style = TextStyle(color = DIM, fontSize = 10.sp, fontFamily = mono))
                         }
                     }
                 }

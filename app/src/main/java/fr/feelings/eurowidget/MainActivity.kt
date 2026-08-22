@@ -43,24 +43,30 @@ class MainActivity : ComponentActivity() {
         super.onCreate(b)
         enableEdgeToEdge()
         RefreshWorker.schedule(this)
-        setContent { Converter() }
+        val prefill = intent.getDoubleExtra(EXTRA_AMOUNT, 0.0)
+        setContent { Converter(prefill) }
+    }
+
+    companion object {
+        /** Extra posé par le widget : montant en devise locale à pré-remplir. */
+        const val EXTRA_AMOUNT = "amount"
     }
 }
 
 @Composable
-fun Converter() {
+fun Converter(prefill: Double = 0.0) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by Repo.stateFlow(ctx).collectAsState(initial = null)
-    var amount by remember { mutableStateOf("") }
+    var amount by remember {
+        mutableStateOf(if (prefill <= 0) "" else if (prefill == Math.floor(prefill)) prefill.toLong().toString() else prefill.toString().replace('.', ','))
+    }
     var editing by remember { mutableStateOf(false) }
     var online by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) { online = Repo.fetch(ctx) }
 
     val s = state ?: return
-    // Reprend le montant estimé depuis la roue du widget.
-    LaunchedEffect(Unit) { if (amount.isEmpty() && s.amt > 0) amount = s.amt.toLong().toString() }
     val value = amount.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
 
     Column(
